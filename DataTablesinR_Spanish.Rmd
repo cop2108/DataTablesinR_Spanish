@@ -1,0 +1,250 @@
+---
+title: "DT: Una interfaz en R para la librería _DataTables_"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+NOTA: Este documento es una traducción al español del tutorial del paquete __DT__. La versión original en inglés puede ser encontrada en el siguiente [enlace](https://rstudio.github.io/DT/).
+
+El paquete __DT__ en R proporciona una interfaz dentro de dicho lenguaje de programación para la librería [DataTables](https://datatables.net) de Javascript. Los diversos objetos de datos en R (matrices o data frames) pueden ser mostrados como tablas en páginas HTML, con la ventaja de poder ser filtrados, paginados u ordenados de forma dinámica.
+
+Es posible instalar una versión estable desde el CRAN, o la versión de desarrollo, usando `devtools::install_github('rstudio/DT')`. 
+
+```{r}
+# if (!require("DT")) install.packages('DT')
+library(DT)
+devtools::session_info()
+```
+
+Por favor usar [Github](https://github.com/rstudio/DT/issues) para reportar errores o solicitar alguna nueva característica, así como [StackOverflow](https://stackoverflow.com/questions/tagged/dt) para realizar preguntas.
+
+## 1. Uso
+
+La función principal en este paquete es `datatable()`. Ésta crea un _HTML widget_ para mostrar objetos de datos en R con __DataTables__.
+
+``` {r eval=FALSE}
+datatable(data, options = list(), class = "display",
+    callback = JS("return table;"), rownames, colnames, container,
+    caption = NULL, filter = c("none", "bottom", "top"), escape = TRUE,
+    style = "default", width = NULL, height = NULL, elementId = NULL,
+    fillContainer = getOption("DT.fillContainer", NULL),
+    autoHideNavigation = getOption("DT.autoHideNavigation", NULL),
+    selection = c("multiple", "single", "none"), extensions = list(),
+    plugins = NULL, editable = FALSE)
+```
+
+A continuación se muestra un ejemplo "hola mundo" sin ninguna configuración:
+
+``` {r}
+library(DT)
+datatable(iris)
+```
+
+## 2. Argumentos
+
+En caso de tener experiencia con __DataTables__, es posible utilizar el argumento `options` para personalizar la tabla. Ver la página de [Opciones](https://rstudio.github.io/DT/options.html) para más detalles. Aquí se explican el resto de los argumentos de la función `datatable()`.
+
+### 2.1 Clases CSS
+
+El argumento `class` especifica las clases CSS de la tabla. Los posibles valores pueden ser encontrados en la página de [opciones de estilo predefinido](https://datatables.net/manual/styling/classes). El valor predefinido `display` básicamente permite el resaltado de los renglones cuando se pasa por encima el cursor, bordes en los renglones y resaltado de columnas ordenadas. Es posible elegir una combinación distinta de las clases CSS, como `cell-border` y `stripe`:
+
+``` {r}
+datatable(head(iris), class = 'cell-border stripe')
+```
+
+### 2.2 Estilo
+
+Actualmente __DT__ sólo permite el estilo Bootstrap, más allá del predefinido. Se puede utilizar el argumento `style = 'bootstrap'` para activar el estilo Bootstrap, y ajustar las clases de la tabla de forma correspondiente, usando las [clases de tablas Bootstrap](https://getbootstrap.com/docs/3.3/css/), tal como `table-stripe` y `table-hover`. __DT__ ajusta automáticamente los nombres de clases, aún cuando se le proporcionen los nombres de clases de __DataTables__, tales como `stripe` o `hover`.
+
+``` {r}
+DT:::DT2BSClass('display')
+## [1] "table table-striped table-hover"
+DT:::DT2BSClass(c('compact', 'cell-border'))
+## [1] "table table-condensed table-bordered"
+```
+
+Notar que sólo se puede usar un estilo para todas las tablas de una página. Favor de ver esta [página](https://rstudio.github.io/DT/005-bootstrap.html) para ver ejemplos usando el estilo Bootstrap.
+
+### 2.3 Edición de tablas
+
+Se puede activar la edición de tablas usando el argumento `editable = TRUE`. De esta forma es posible darle doble click a una celda para editar su valor. Funciona tanto en la modalidad del lado del cliente, como en la del [servidor](https://rstudio.github.io/DT/server.html). Abajo se muestra un ejemplo del lado del cliente (también ver un [ejemplo en Shiny](https://yihui.shinyapps.io/DT-edit/) para el lado del servidor):
+
+``` {r}
+DT::datatable(head(iris), editable = TRUE)
+```
+
+### 2.4 Mostrar nombres de los renglones
+
+Si el objeto de datos tiene nombre de renglones, el estilo predefinido será mostrarlos como la primera columna de la tabla. Dichos nombres de renglones pueden ser suprimidos usando el argumento `rownames = FALSE`, y también se pueden cambiar dando un vector de caracteres distinto a `rownames`.
+
+``` {r}
+datatable(head(mtcars))
+datatable(head(mtcars), rownames = FALSE)  # sin nombres de renglón
+datatable(head(mtcars), rownames = head(LETTERS))  # nombres de renglón distintos
+```
+
+### 2.5 Personalizar nombres de columnas
+
+Como valor predefinido, `datatable()` muestra los nombres de las columnas de los datos en la tabla, pero también se puede usar un vector de caracteres personalizado como encabezado de la tabla. Hay algunas posibilidades. La primera es proveer un nuevo vector de caracteres para reemplazar completamente los nombres de las columnas de los datos, por ejemplo, 
+
+``` {r}
+# colnames(iris) es un vector de caracteres de tamaño 5, y es reemplazado
+datatable(head(iris), colnames = c('Aqui', 'Hay', 'Algunos', 'Nombres', 'Nuevos'))
+```
+
+Esto puede ser inconveniente si sólo se desean reemplazar uno o dos nombres, y no se desea proveer de un vector completamente nuevo. Luego, existe una segunda posibilidad: se puede proporcionar un vector más chico de números o caracteres como un vector de índices para reemplazar un subconjunto de nombres de columnas. Por ejemplo, si sólo sea desea que el segundo nombre sea `Un mejor nombre`, es posible usar `datatable(..., colnames = c('Un mejor nombre' = 2))`; o si se desea reemplazar `X5` por `Un mejor nombre`, se puede usar `colnames = c('Un mejor nombre' = 'X5')`.
+
+``` {r}
+datatable(head(iris), colnames = c('Un mejor nombre' = 'Sepal.Width'))
+datatable(head(iris), colnames = c('Otro mejor nombre' = 2, 'Aun otro nombre' = 4))
+```
+
+Cuando se muestran los nombres de los renglones de los datos, su correspondiente nombre de columna será un espacio en blanco como valor predefinido. Por esa razón no se ve ningún nombre de columna. Sin embargo, también es posible elegir un nombre de columna para estos valores, por ejemplo, 
+
+``` {r}
+# cambiar el nombre de la primera columna por 'ID'
+datatable(head(iris), colnames = c('ID' = 1))
+```
+
+### 2.6 Contenedor personalizado de la tabla
+
+El argumento `container` permite proporcionar un contenedor de la tabla distinto para mostrar las celdas. De forma predefinida, el contenedor es generado a a partir de los nombres de las columnas. Abajo se muestra una ejemplo de un encabezado de tabla personalizado:
+
+``` {r}
+# un contenedor personalizado de la tabla
+sketch = htmltools::withTags(table(
+  class = 'display',
+  thead(
+    tr(
+      th(rowspan = 2, 'Species'),
+      th(colspan = 2, 'Sepal'),
+      th(colspan = 2, 'Petal')
+    ),
+    tr(
+      lapply(rep(c('Length', 'Width'), 2), th)
+    )
+  )
+))
+print(sketch)
+# se usa rownames = FALSE porque no se generó una celda para los nombres
+# de renglones en el encabezado, y éste sólo contiene 5 columnas
+datatable(iris[1:20, c(5, 1:4)], container = sketch, rownames = FALSE)
+```
+
+También es posible añadir un pie de página al contenedor de la tabla, y aquí se muestra un ejemplo:
+
+``` {r}
+sketch = htmltools::withTags(table(
+  tableHeader(iris),
+  tableFooter(iris)
+))
+print(sketch)
+datatable(
+  head(iris, 10),
+  container = sketch, options = list(pageLength = 5, dom = 'tip'), rownames = FALSE
+)
+```
+
+### 2.7 Descripción de la tabla
+
+Se puede añadir una descripción de la tabla usando el argumento `caption`. Puede ser tanto un vector de caracteres o un objeto _tag_ creado usando `htmltools::tags$caption()`. Ver esta [publicación](https://datatables.net/blog/2014-11-07) para más información acerca de descripciones de tablas.
+
+``` {r}
+datatable(
+  head(iris),
+  caption = 'Tabla 1: esta es una descripción simple de la tabla.'
+)
+
+# Mostrar la descripción en la parta de abajo, y enfatizada
+datatable(
+  head(iris),
+  caption = htmltools::tags$caption(
+    style = 'caption-side: bottom; text-align: center;',
+    'Table 2: ', htmltools::em('Esta es una descripción simple de la tabla.')
+  )
+)
+```
+
+### 2.8 Filtros de columnas
+
+__DataTables__ no proporciona filtros de columnas de manera predefinida. Sólo existe un filtro global (la caja de búsqueda en la parte de arriba, a la derecha). Nostros añadimos el argumento `filter` en `datatable()` para generar filtros de columnas de manera automática. De manera predefinida, los filtros no se muestran porque `filter = 'none'`. Se pueden activar estos filtros usando `filter = 'top'` o `'bottom'`, dependiendo si se desean los filtros en la parte de arriba o abajo de la tabla.
+
+``` {r}
+iris2 = iris[c(1:10, 51:60, 101:110), ]
+datatable(iris2, filter = 'top', options = list(
+  pageLength = 5, autoWidth = TRUE
+))
+```
+
+Dependiendo del tipo de columna, el control de filtros puede ser distinto. Inicialmente se muestran cajas de búsqueda para todas las columnas. Una vez que se le da click a alguna de ellas, es posible ver distintos controles:
+
+* Para columnas numericas/fecha/tiempo, [deslizadores de intervalo](https://refreshless.com/nouislider/) son usados para filtrar renglones dentro de rangos;
+* Para columnas de factores, [seleccionadores](https://selectize.github.io/selectize.js/) son usados para mostrar todas las posibles categorías, y se pueden seleccionar tantas categorías como se deseen (notar que también se puede escribir en las cajas);
+* Para columnas de caracteres, cajas de búsqueda ordinarias son usadas para encontrar los valores que coincidan con lo escrito en ellas.
+
+Cuando se dejan las cajas de búsqueda iniciales, los controles estarán ocultos y los valores de los filtros (si existen) quedan guardados en las cajas:
+
+* Para columnas numéricas/fecha/tiempo, los valores mostrados en las cajas son del tipo `pequeño ... grande`;
+* Para columnas de factores, los valores son almacenados como un _array_ JSON de la forma `["valor1", "valor2", "valor3"]`.
+
+Cuando una columna es filtrada, aparecerá un botón para eliminar dicho filtro en la caja de búsqueda. Si no sea desean usar los controles, también se puede escribir directamente en las cajas de búsqueda, por ejemplo, `2 ... 5` para filtrar una columna numérica, y el rango de su deslizador se actualizará a `[2,5]`. En caso de que una caja de búsqueda sea tan estrecha que se vuelva difícil leer los valores en ella, se puede pasar el cursor sobre la caja y sus valores aparecerán. Ver [este ejemplo](https://rstudio.github.io/DT/008-filter.html) de cómo esconder los botones para eliminar los filtros, y usar valores de entrada con texto plano, en lugar de Bootstrap.
+
+Abajo se muestra un ejemplo simple de filtros para columnas de caracter, fecha y tiempo.
+
+``` {r}
+d = data.frame(
+  names = rownames(mtcars),
+  date = as.Date('2015-03-23') + 1:32,
+  time = as.POSIXct('2015-03-23 12:00:00', tz = 'UTC') + (1:32) * 5000,
+  stringsAsFactors = FALSE
+)
+str(d)
+datatable(d, filter = 'bottom', options = list(pageLength = 5))
+```
+
+Los filtros de los ejemplos anteriores se realizaron desde el lado del cliente (usando JavaScript en el navegador web). Los filtros de columna también funcionan en el lado del [servidor](https://rstudio.github.io/DT/server.html), en cuyo caso los filtros serán procesados en el servidor, y pueden haber algunas pequeñas diferencias (ej., las expresiones regulares de JavaScript son distintas con R). Aquí hay [un ejemplo](https://yihui.shinyapps.io/DT-filter/) de filtros de columnas funcionando en el lado del servidor.
+
+### 2.9 El argumento `callback`
+
+El argumento `callback` toma el cuerpo de una función de JavaScript que será aplicada a un objeto de __DataTables__ después de ser inicializado. Abajo se muestra un ejemplo para mostrar la siguiente página después de que la tabla es inicializada:
+
+``` {r}
+datatable(head(iris, 30), callback = JS('table.page("next").draw(false);'))
+```
+
+En el ejemplo anterior, la función de Javascript es
+
+``` {r eval=FALSE}
+function(table) {
+  table.page("next").draw(false);
+}
+```
+
+El propósito de este argumento es permitir a los usuarios manipular el objeto de __DataTables__ después de su creación.
+
+### 2.10 Interpretar texto distinto a caracter
+
+El argumento `escape` determina si una entidad HTML en la tabla debe ser interpretada de forma distinta a una caracter o no. Puede haber problemas de seguridad potenciales si la tabla es incrustada en aplicaciones web dinámicas, como Shiny, y se _escapan_. Aquí hay un ejemplo rápido
+
+``` {r}
+m = matrix(c(
+  '<b>Bold</b>', '<em>Emphasize</em>', '<a href="http://rstudio.com">RStudio</a>',
+  '<a href="#" onclick="alert(\'Hello World\');">Hello</a>'
+), 2)
+colnames(m) = c('<span style="color:red">Column 1</span>', '<em>Column 2</em>')
+datatable(m)  # escape = TRUE de manera predefinida
+datatable(m, escape = FALSE)
+```
+
+Más allá de `TRUE` o `FALSE`, también se pueden especificar qué columnas se quieren _escapar_, por ejemplo,
+
+``` {r}
+datatable(m, escape = 1)  # escapa la primer columna
+datatable(m, escape = 2)  # escapa la segunda columna
+datatable(m, escape = c(TRUE, FALSE))  # escapa la primer columna
+colnames(m) = c('V1', 'V2')
+datatable(m, escape = 'V1')
+```
